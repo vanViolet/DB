@@ -1,0 +1,334 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum EGender {
+  MALE
+  FEMALE
+}
+
+enum ERole {
+  ADMIN
+  USER
+  MITRA
+}
+
+/// Aplikasi Startup penyedia lapangan olahraga
+
+model User {
+  id              String        @id @default(uuid())
+  phone           String        @db.VarChar(20)
+  email           String        @unique
+  firstName       String        @db.VarChar(50)
+  lastName        String?       @db.VarChar(50)
+  photo           String?       @db.VarChar(36)
+  password        String        @db.VarChar(100)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  deletedAt       DateTime?
+  suspendedAt     DateTime?
+  suspendedReason String?       @db.Text
+  loginAttempt    Int           @default(0)
+  gender          EGender?
+  bookings        Cart[]
+  Venue           Venue[]
+  Rating          Rating[]
+  UserRole        ERole         @default(USER)
+  Transaction     Transaction[]
+  UserBank        UserBank[]
+}
+
+model UserBank {
+  id             String          @id @default(uuid())
+  userId         String
+  bankId         String
+  rekeningNumber String
+  createdAt      DateTime        @default(now())
+  deletedAt      DateTime?
+  User           User            @relation(fields: [userId], references: [id])
+  Bank           MasterBank      @relation(fields: [bankId], references: [id])
+  WithdrawVenue  WithdrawVenue[]
+}
+
+model MasterBank {
+  id        String     @id @default(uuid())
+  code      String     @unique @db.VarChar(10)
+  name      String
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  deletedAt DateTime?
+  UserBank  UserBank[]
+}
+
+model MasterDocumentVenue {
+  id            String          @id @default(uuid())
+  name          String
+  description   String?
+  createdAt     DateTime        @default(now())
+  deletedAt     DateTime?
+  DocumentVenue DocumentVenue[]
+}
+
+model InvoiceVenue {
+  id           String             @id @default(uuid())
+  venueId      String
+  invoiceDate  DateTime
+  dueDate      DateTime
+  amount       Int
+  status       EStatusTransaction @default(PENDING)
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+  Venue        Venue              @relation(fields: [venueId], references: [id])
+  PaymentVenue PaymentVenue[]
+}
+
+model WithdrawVenue {
+  id         String             @id @default(uuid())
+  venueId    String
+  userBankId String
+  amount     Int
+  status     EStatusTransaction @default(PENDING)
+  createdAt  DateTime           @default(now())
+  updatedAt  DateTime           @updatedAt
+  Venue      Venue              @relation(fields: [venueId], references: [id])
+  UserBank   UserBank           @relation(fields: [userBankId], references: [id])
+}
+
+model PaymentVenue {
+  id            String       @id @default(uuid())
+  invoiceId     String
+  paymentDate   DateTime
+  paymentCode   String
+  paymentMethod String
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  Invoice       InvoiceVenue @relation(fields: [invoiceId], references: [id])
+}
+
+model DocumentVenue {
+  id                    String              @id @default(uuid())
+  nama                  String
+  masterDocumentVenueId String
+  venueId               String
+  MasterDocumentVenue   MasterDocumentVenue @relation(fields: [masterDocumentVenueId], references: [id])
+  Venue                 Venue               @relation(fields: [venueId], references: [id])
+}
+
+// model UserRole {
+//   id        String   @id @default(uuid())
+//   userId    String
+//   roleCode  String
+//   createdAt DateTime @default(now())
+//   updatedAt DateTime @updatedAt
+//   User      User     @relation(fields: [userId], references: [id])
+//   Role      Role     @relation(fields: [roleCode], references: [code])
+// }
+
+// model Role {
+//   code        String     @unique @db.VarChar(10)
+//   description String?    @db.Text
+//   UserRole    UserRole[]
+// }
+
+model Payment {
+  id            String      @id @default(uuid())
+  transactionId String      @unique
+  paymentDate   DateTime
+  Transaction   Transaction @relation(fields: [transactionId], references: [id])
+}
+
+enum EStatusTransaction {
+  PENDING
+  SUCCESS
+  FAILED
+}
+
+model MasterPaymentMethod {
+  code        String        @unique @db.VarChar(10)
+  description String?       @db.Text
+  isActive    Boolean       @default(true)
+  Transaction Transaction[]
+}
+
+model Transaction {
+  id                String              @id @default(uuid())
+  userId            String
+  cartId            String
+  amount            Int
+  status            EStatusTransaction  @default(PENDING)
+  paymentCode       String?             @db.VarChar(10)
+  paymentMethodCode String              @db.VarChar(10)
+  linkQR            String?             @db.Text
+  deepLinkRedirect  String?             @db.Text
+  expiredAt         DateTime
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  Cart              Cart                @relation(fields: [cartId], references: [id])
+  User              User                @relation(fields: [userId], references: [id])
+  PaymentMethod     MasterPaymentMethod @relation(fields: [paymentMethodCode], references: [code])
+  CartItem          CartItem?           @relation(fields: [cartItemId], references: [id])
+  cartItemId        String?
+  Payment           Payment?
+}
+
+model Cart {
+  id          String        @id @default(uuid())
+  userId      String
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime?     @updatedAt
+  User        User          @relation(fields: [userId], references: [id])
+  CartItem    CartItem[]
+  Transaction Transaction[]
+}
+
+model CartItem {
+  id          String        @id @default(uuid())
+  slotTimeId  String?
+  SlotTime    SlotTime?     @relation(fields: [slotTimeId], references: [id])
+  Transaction Transaction[]
+  Cart        Cart?         @relation(fields: [cartId], references: [id])
+  cartId      String?
+}
+
+model Venue {
+  id              String          @id @default(uuid())
+  userId          String
+  name            String          @db.VarChar(100)
+  description     String          @db.Text
+  address         String          @db.Text
+  province        String
+  district        String
+  subDistrict     String
+  city            String
+  phone           String          @db.VarChar(20)
+  photo           String          @db.Text
+  suspendedAt     DateTime?
+  suspendedReason String?         @db.Text
+  excludeDay      Json            @db.Json
+  latitude        Float
+  longitude       Float
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  refundId        String
+  masterRefundId  String
+  slots           Slot[]
+  User            User            @relation(fields: [userId], references: [id])
+  VenueHoliday    VenueHoliday[]
+  VenueFacility   VenueFacility[]
+  Rating          Rating[]
+  MasterRefund    MasterRefund?   @relation(fields: [masterRefundId], references: [id])
+  DocumentVenue   DocumentVenue[]
+  InvoiceVenue    InvoiceVenue[]
+  WithdrawVenue   WithdrawVenue[]
+}
+
+model VenueFacility {
+  id         String         @id @default(uuid())
+  venueId    String
+  facilityId String
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+  Venue      Venue          @relation(fields: [venueId], references: [id])
+  Facility   MasterFacility @relation(fields: [facilityId], references: [id])
+}
+
+model VenueHoliday {
+  id        String   @id @default(uuid())
+  venueId   String
+  date      DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  Venue     Venue    @relation(fields: [venueId], references: [id])
+}
+
+model Slot {
+  id                  String             @id @default(uuid())
+  venueId             String
+  name                String
+  photo               String?
+  description         String             @db.Text
+  isActive            Boolean            @default(true)
+  reasonNotAvailable  String?            @db.Text
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+  Venue               Venue              @relation(fields: [venueId], references: [id])
+  SlotTime            SlotTime[]
+  MasterTypeOfSport   MasterTypeOfSport? @relation(fields: [masterTypeOfSportId], references: [id])
+  masterTypeOfSportId String?
+}
+
+model SlotTime {
+  id           String      @id @default(uuid())
+  price        Int
+  slotId       String?
+  masterTimeId String?
+  Slot         Slot?       @relation(fields: [slotId], references: [id])
+  MasterTime   MasterTime? @relation(fields: [masterTimeId], references: [id])
+  CartItem     CartItem[]
+}
+
+model MasterTime {
+  id        String     @id @default(uuid())
+  name      String     @db.VarChar(50)
+  startTime DateTime
+  endTime   DateTime
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  SlotTime  SlotTime[]
+}
+
+model MasterFacility {
+  id            String          @id @default(uuid())
+  name          String
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  VenueFacility VenueFacility[]
+}
+
+model MasterTypeOfSport {
+  id        String   @id @default(uuid())
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  Slot      Slot[]
+}
+
+model MasterRefund {
+  id          String    @id @default(uuid())
+  name        String
+  description String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime? @updatedAt
+  venues      Venue[]
+}
+
+model Rating {
+  id        String   @id @default(uuid())
+  userId    String
+  venueId   String
+  rating    Int
+  comment   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  User      User     @relation(fields: [userId], references: [id])
+  Venue     Venue    @relation(fields: [venueId], references: [id])
+}
+
+model AuditTrail {
+  id        String   @id @default(uuid())
+  targetId  String
+  action    String
+  body      Json     @db.Json
+  createdAt DateTime @default(now())
+}
